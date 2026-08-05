@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TG-CDN // Relay Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0D1117;
+    --panel: #141B2A;
+    --panel-raised: #19233A;
+    --line: #2A3547;
+    --paper: #E6E9EF;
+    --paper-dim: #8B96A8;
+    --amber: #E8A33D;
+    --teal: #5FBFAE;
+    --danger: #E36767;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: 'IBM Plex Mono', monospace;
+    min-height: 100vh;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(255,255,255,0.012) 0px,
+      rgba(255,255,255,0.012) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    z-index: 1000;
+  }
+
+  .wrap {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  header.station {
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 20px;
+    margin-bottom: 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .station-id {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 28px;
+    letter-spacing: 0.5px;
+  }
+
+  .station-id .dim { color: var(--paper-dim); font-weight: 400; }
+
+  .status-line {
+    font-size: 12px;
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .status-line.online { color: var(--teal); }
+  .status-line.offline { color: var(--amber); }
+
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+  .status-line.online .status-dot { background: var(--teal); box-shadow: 0 0 6px var(--teal); }
+  .status-line.offline .status-dot { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+
+  h2.section-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--paper-dim);
+    margin: 0 0 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  h2.section-title::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--line);
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 20px;
+    margin-bottom: 40px;
+  }
+
+  .panel.accent { border-color: var(--amber); }
+
+  .step-label {
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--amber);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .field-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+
+  .field { flex: 1; min-width: 180px; display: flex; flex-direction: column; gap: 6px; }
+
+  label {
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--paper-dim);
+  }
+
+  input[type="text"], input[type="password"], input[type="tel"], input[type="file"], select {
+    background: var(--ink);
+    border: 1px solid var(--line);
+    color: var(--paper);
+    padding: 10px 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    border-radius: 2px;
+  }
+
+  input:focus, select:focus {
+    outline: none;
+    border-color: var(--amber);
+  }
+
+  button {
+    background: var(--amber);
+    color: #1a1300;
+    border: none;
+    padding: 11px 20px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.5px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: filter 0.15s;
+  }
+
+  button.ghost {
+    background: transparent;
+    border: 1px solid var(--teal);
+    color: var(--teal);
+  }
+  button.ghost:hover { background: var(--teal); color: #062621; }
+
+  button:hover { filter: brightness(1.1); }
+  button:disabled { background: var(--line); color: var(--paper-dim); cursor: not-allowed; }
+  button:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+
+  .hint {
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--paper-dim);
+    line-height: 1.5;
+  }
+  .hint.error { color: var(--danger); }
+  .hint.success { color: var(--teal); }
+
+  #login-panel, #storage-panel, #main-app { display: none; }
+  #login-panel.active, #storage-panel.active, #main-app.active { display: block; }
+
+  .log-entry {
+    display: grid;
+    grid-template-columns: 72px 1fr auto auto;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    margin-bottom: 8px;
+    background: var(--panel);
+  }
+
+  .log-entry .tx-id { color: var(--amber); font-size: 12px; font-weight: 600; }
+  .log-entry .tx-title { font-size: 14px; color: var(--paper); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .log-entry .tx-meta { font-size: 11px; color: var(--paper-dim); white-space: nowrap; }
+  .log-entry .tx-play { background: transparent; border: 1px solid var(--teal); color: var(--teal); padding: 7px 14px; font-size: 11px; letter-spacing: 1px; }
+  .log-entry .tx-play:hover { background: var(--teal); color: #062621; }
+
+  .empty-log {
+    color: var(--paper-dim);
+    font-size: 13px;
+    padding: 20px;
+    border: 1px dashed var(--line);
+    text-align: center;
+    border-radius: 2px;
+  }
+
+  #receiver {
+    display: none;
+    background: var(--panel-raised);
+    border: 1px solid var(--amber);
+    border-radius: 3px;
+    padding: 16px;
+    margin-bottom: 32px;
+  }
+  #receiver.active { display: block; }
+  #receiver .receiver-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px; font-size: 11px; letter-spacing: 1px;
+    color: var(--amber); text-transform: uppercase;
+  }
+  #receiver video { width: 100%; display: block; border-radius: 2px; background: #000; }
+  .close-receiver { background: transparent; border: 1px solid var(--line); color: var(--paper-dim); padding: 5px 10px; font-size: 11px; }
+  .close-receiver:hover { border-color: var(--danger); color: var(--danger); }
+
+  footer {
+    margin-top: 48px;
+    font-size: 11px;
+    color: var(--paper-dim);
+    border-top: 1px solid var(--line);
+    padding-top: 16px;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="station">
+    <div class="station-id">TG-CDN <span class="dim">// relay console</span></div>
+    <div class="status-line offline" id="status-line"><span class="status-dot"></span><span id="status-text">CHECKING LINK…</span></div>
+  </header>
+
+  <!-- STEP 1: LOGIN -->
+  <div id="login-panel" class="panel accent">
+    <h2 class="section-title">Connect Telegram account</h2>
+
+    <div id="phone-step">
+      <div class="step-label">Step 1 — phone number</div>
+      <div class="field-row">
+        <div class="field">
+          <label for="admin-secret">Admin secret</label>
+          <input type="password" id="admin-secret" placeholder="UPLOAD_SECRET" />
+        </div>
+        <div class="field">
+          <label for="phone">Phone (international format)</label>
+          <input type="tel" id="phone" placeholder="+14155551234" />
+        </div>
+      </div>
+      <button onclick="sendCode()" id="send-code-btn">Send login code</button>
+      <div class="hint" id="phone-hint"></div>
+    </div>
+
+    <div id="code-step" style="display:none; margin-top:20px;">
+      <div class="step-label">Step 2 — verification code</div>
+      <div class="field-row">
+        <div class="field">
+          <label for="code">Code sent to your Telegram app</label>
+          <input type="text" id="code" placeholder="12345" />
+        </div>
+      </div>
+      <button onclick="verifyCode()" id="verify-code-btn">Verify code</button>
+      <div class="hint" id="code-hint"></div>
+    </div>
+
+    <div id="password-step" style="display:none; margin-top:20px;">
+      <div class="step-label">Step 2b — two-factor password</div>
+      <div class="field-row">
+        <div class="field">
+          <label for="tfa-password">Your Telegram 2FA password</label>
+          <input type="password" id="tfa-password" placeholder="••••••••" />
+        </div>
+      </div>
+      <button onclick="verifyPassword()" id="verify-password-btn">Verify password</button>
+      <div class="hint" id="password-hint"></div>
+    </div>
+  </div>
+
+  <!-- STEP 2: PICK STORAGE CHANNEL -->
+  <div id="storage-panel" class="panel accent">
+    <h2 class="section-title">Select storage channel</h2>
+    <p class="hint">Logged in. Pick the private channel where uploaded videos will be stored.</p>
+    <div class="field-row">
+      <div class="field">
+        <label for="dialog-select">Your chats/channels</label>
+        <select id="dialog-select"></select>
+      </div>
+    </div>
+    <button onclick="setStorageChat()">Use this channel</button>
+    <div class="hint" id="storage-hint"></div>
+  </div>
+
+  <!-- STEP 3: MAIN APP -->
+  <div id="main-app">
+    <div id="receiver">
+      <div class="receiver-head">
+        <span id="receiver-title">NOW RECEIVING</span>
+        <button class="close-receiver" onclick="closeReceiver()">CLOSE ✕</button>
+      </div>
+      <video id="player" controls preload="metadata"></video>
+    </div>
+
+    <h2 class="section-title">Transmit new file</h2>
+    <div class="panel">
+      <form id="upload-form">
+        <div class="field-row">
+          <div class="field">
+            <label for="title">Title</label>
+            <input type="text" id="title" name="title" placeholder="e.g. Demo clip 01" required />
+          </div>
+          <div class="field">
+            <label for="upload-secret">Admin secret</label>
+            <input type="password" id="upload-secret" placeholder="UPLOAD_SECRET" required />
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="file">Video file</label>
+            <input type="file" id="file" name="file" accept="video/*" required />
+          </div>
+        </div>
+        <button type="submit" id="submit-btn">Send to relay</button>
+        <div id="upload-status" class="hint"></div>
+      </form>
+    </div>
+
+    <h2 class="section-title">Transmission log</h2>
+    <div id="log-list">
+      <div class="empty-log">No transmissions yet — send a file above.</div>
+    </div>
+  </div>
+
+  <footer>
+    DEMO SYSTEM — login happens through this panel (phone → code → optional 2FA),
+    which hot-swaps a fresh Telegram session into the running server, no restart
+    needed. The session is also saved to local disk so a same-machine restart
+    stays logged in — but on hosts with ephemeral storage, copy the session
+    string into a permanent env var/secret after logging in once.
+  </footer>
+
+</div>
+
+<script>
+let currentLoginId = null;
+
+function getAdminSecret() {
+  return document.getElementById('admin-secret').value || document.getElementById('upload-secret')?.value || '';
+}
+
+async function refreshStatus() {
+  const res = await fetch('/api/auth/status');
+  const status = await res.json();
+  const statusLine = document.getElementById('status-line');
+  const statusText = document.getElementById('status-text');
+
+  if (status.logged_in && status.storage_chat_id) {
+    statusLine.className = 'status-line online';
+    statusText.textContent = 'LINK ONLINE — SOURCE: TELEGRAM MTPROTO';
+    showPanel('main-app');
+    loadCatalog();
+  } else if (status.logged_in) {
+    statusLine.className = 'status-line offline';
+    statusText.textContent = 'LOGGED IN — SELECT STORAGE CHANNEL';
+    showPanel('storage-panel');
+    loadDialogs();
+  } else {
+    statusLine.className = 'status-line offline';
+    statusText.textContent = 'NOT CONNECTED';
+    showPanel('login-panel');
+  }
+}
+
+function showPanel(id) {
+  ['login-panel', 'storage-panel', 'main-app'].forEach(p => {
+    document.getElementById(p).classList.toggle('active', p === id);
+  });
+}
+
+async function sendCode() {
+  const secret = document.getElementById('admin-secret').value;
+  const phone = document.getElementById('phone').value.trim();
+  const hint = document.getElementById('phone-hint');
+  const btn = document.getElementById('send-code-btn');
+
+  if (!secret || !phone) {
+    hint.textContent = 'Enter admin secret and phone number.';
+    hint.className = 'hint error';
+    return;
+  }
+
+  btn.disabled = true;
+  hint.textContent = 'Requesting code from Telegram…';
+  hint.className = 'hint';
+
+  try {
+    const res = await fetch('/api/auth/send-code', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ secret, phone }),
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || 'Failed to send code');
+    const data = await res.json();
+    currentLoginId = data.login_id;
+    hint.textContent = 'Code sent — check your Telegram app.';
+    hint.className = 'hint success';
+    document.getElementById('code-step').style.display = 'block';
+  } catch (err) {
+    hint.textContent = 'Error: ' + err.message;
+    hint.className = 'hint error';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function verifyCode() {
+  const code = document.getElementById('code').value.trim();
+  const hint = document.getElementById('code-hint');
+  const btn = document.getElementById('verify-code-btn');
+
+  btn.disabled = true;
+  hint.textContent = 'Verifying…';
+  hint.className = 'hint';
+
+  try {
+    const res = await fetch('/api/auth/verify-code', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ secret: getAdminSecret(), login_id: currentLoginId, code }),
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || 'Verification failed');
+    const data = await res.json();
+
+    if (data.status === 'password_required') {
+      hint.textContent = 'Code accepted — 2FA password required.';
+      hint.className = 'hint success';
+      document.getElementById('password-step').style.display = 'block';
+    } else {
+      hint.textContent = 'Logged in.';
+      hint.className = 'hint success';
+      refreshStatus();
+    }
+  } catch (err) {
+    hint.textContent = 'Error: ' + err.message;
+    hint.className = 'hint error';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function verifyPassword() {
+  const password = document.getElementById('tfa-password').value;
+  const hint = document.getElementById('password-hint');
+  const btn = document.getElementById('verify-password-btn');
+
+  btn.disabled = true;
+  hint.textContent = 'Verifying…';
+  hint.className = 'hint';
+
+  try {
+    const res = await fetch('/api/auth/verify-password', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ secret: getAdminSecret(), login_id: currentLoginId, password }),
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || 'Verification failed');
+    hint.textContent = 'Logged in.';
+    hint.className = 'hint success';
+    refreshStatus();
+  } catch (err) {
+    hint.textContent = 'Error: ' + err.message;
+    hint.className = 'hint error';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function loadDialogs() {
+  const secret = getAdminSecret();
+  const select = document.getElementById('dialog-select');
+  select.innerHTML = '<option>Loading…</option>';
+  try {
+    const res = await fetch('/api/auth/dialogs?secret=' + encodeURIComponent(secret));
+    const dialogs = await res.json();
+    select.innerHTML = dialogs.map(d => `<option value="${d.id}">${escapeHtml(d.name)} (${d.id})</option>`).join('');
+  } catch (err) {
+    select.innerHTML = '<option>Failed to load — check admin secret</option>';
+  }
+}
+
+async function setStorageChat() {
+  const chatId = document.getElementById('dialog-select').value;
+  const hint = document.getElementById('storage-hint');
+  try {
+    const res = await fetch('/api/auth/storage-chat', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ secret: getAdminSecret(), chat_id: parseInt(chatId) }),
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || 'Failed to save');
+    hint.textContent = 'Storage channel set.';
+    hint.className = 'hint success';
+    refreshStatus();
+  } catch (err) {
+    hint.textContent = 'Error: ' + err.message;
+    hint.className = 'hint error';
+  }
+}
+
+async function loadCatalog() {
+  const res = await fetch('/api/videos');
+  const videos = await res.json();
+  const list = document.getElementById('log-list');
+
+  if (!videos.length) {
+    list.innerHTML = '<div class="empty-log">No transmissions yet — send a file above.</div>';
+    return;
+  }
+
+  list.innerHTML = videos.map((v, i) => {
+    const sizeMb = (v.file_size / (1024 * 1024)).toFixed(1);
+    const txId = 'TX-' + String(videos.length - i).padStart(4, '0');
+    return `
+      <div class="log-entry">
+        <span class="tx-id">${txId}</span>
+        <span class="tx-title">${escapeHtml(v.title)}</span>
+        <span class="tx-meta">${sizeMb} MB</span>
+        <button class="tx-play" onclick="playVideo('${v.id}', '${escapeHtml(v.title).replace(/'/g, "\\'")}')">▶ PLAY</button>
+      </div>
+    `;
+  }).join('');
+}
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function playVideo(id, title) {
+  const receiver = document.getElementById('receiver');
+  const player = document.getElementById('player');
+  document.getElementById('receiver-title').textContent = 'NOW RECEIVING — ' + title;
+  player.src = '/video/' + id;
+  receiver.classList.add('active');
+  receiver.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  player.play().catch(() => {});
+}
+
+function closeReceiver() {
+  const player = document.getElementById('player');
+  player.pause();
+  player.src = '';
+  document.getElementById('receiver').classList.remove('active');
+}
+
+document.getElementById('upload-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('submit-btn');
+  const statusEl = document.getElementById('upload-status');
+  const form = e.target;
+  const fileInput = document.getElementById('file');
+
+  if (!fileInput.files.length) return;
+
+  const formData = new FormData();
+  formData.append('title', document.getElementById('title').value);
+  formData.append('secret', document.getElementById('upload-secret').value);
+  formData.append('file', fileInput.files[0]);
+
+  btn.disabled = true;
+  statusEl.textContent = 'Transmitting… this uploads to Telegram, may take a moment.';
+  statusEl.className = 'hint';
+
+  try {
+    const res = await fetch('/api/upload', { method: 'POST', body: formData });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || ('Upload failed (' + res.status + ')'));
+    }
+    const data = await res.json();
+    statusEl.textContent = 'Transmission complete — ' + data.title;
+    statusEl.className = 'hint success';
+    form.reset();
+    loadCatalog();
+  } catch (err) {
+    statusEl.textContent = 'Error: ' + err.message;
+    statusEl.className = 'hint error';
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+refreshStatus();
+</script>
+</body>
+</html>
